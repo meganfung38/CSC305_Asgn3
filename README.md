@@ -8,4 +8,7 @@
 # ASK 
 - do we need a class diagram for this assignment?
 - any other deliverables? 
-- how descriptive does logging have to be? 
+- how descriptive does logging have to be?
+---
+# SAMPLE TESTER GH URL 
+https://github.com/meganfung38/sample/tree/main/src 
