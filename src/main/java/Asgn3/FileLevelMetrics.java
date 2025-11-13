@@ -7,6 +7,9 @@ import java.util.List;
  * object that represents a single .java file and its file level metrics:
  * size --> number of non-empty lines
  * complexity --> number of control statements
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 public class FileLevelMetrics {
 

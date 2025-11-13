@@ -6,6 +6,9 @@ import javax.swing.*;
  * file --> open from URL and exit
  * action --> reload and clear
  * help --> about
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class MenuBar extends JMenuBar {

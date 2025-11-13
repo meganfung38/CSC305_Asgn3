@@ -11,6 +11,9 @@ import java.util.List;
  * y: abstraction (0 = concrete, 1 = abstract)
  * painful + useless regions
  * diagonal balance line (I = 1 - A)
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 public class MetricsPanel extends JPanel {
 

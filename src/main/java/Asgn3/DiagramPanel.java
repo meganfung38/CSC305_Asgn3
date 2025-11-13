@@ -4,6 +4,9 @@ import java.awt.*;
 
 /**
  * placeholder for future implementation
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 public class DiagramPanel extends JPanel {
 

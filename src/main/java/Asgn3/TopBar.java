@@ -5,6 +5,9 @@ import java.awt.event.ActionListener;
 
 /**
  * text field input for GH folder URLs
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class TopBar extends JPanel {

@@ -10,6 +10,9 @@ import java.awt.event.MouseEvent;
  * each square in grid represents a single .java file
  * color --> code complexity
  * transparency --> file size relative to the largest file
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class GridPanel extends JPanel {

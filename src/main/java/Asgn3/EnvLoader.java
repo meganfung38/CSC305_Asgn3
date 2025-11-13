@@ -5,6 +5,9 @@ import java.util.stream.Stream;
 
 /**
  * loads environment variables (GH token)
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class EnvLoader {

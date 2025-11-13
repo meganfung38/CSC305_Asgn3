@@ -4,6 +4,9 @@ import java.awt.*;
 
 /**
  * immutable text area that displays name of currently selected file
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class BottomPanel extends JPanel {

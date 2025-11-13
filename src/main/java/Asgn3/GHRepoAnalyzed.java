@@ -8,6 +8,8 @@ import java.util.Map;
  * class level-- instability, distance
  * full repo level-- abstraction and filePaths
  *
+ * @author Megan Fung
+ * @version 1.0
  */
 public class GHRepoAnalyzed {
 

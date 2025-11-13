@@ -7,6 +7,9 @@ import java.awt.*;
 /**
  * displays project directory structure
  * uses JTree to visualize folder hierarchy
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 public class SidePanel extends JPanel {
 

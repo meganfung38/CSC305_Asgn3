@@ -11,6 +11,9 @@ import java.util.regex.Pattern;
  * abstraction --> proportion of classes that are abstract
  * instability --> proportion of outgoing dependencies
  * distance --> |A + I - 1|
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class GHRepoAnalyzer {

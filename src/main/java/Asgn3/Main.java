@@ -2,9 +2,10 @@ package Asgn3;
 import javax.swing.*;
 
 /**
- * @author Megan Fung
- *
  * launch program from here
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class Main {

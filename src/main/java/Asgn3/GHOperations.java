@@ -7,6 +7,9 @@ import java.net.URISyntaxException;
 
 /**
  * helper for accessing GH folders
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class GHOperations {

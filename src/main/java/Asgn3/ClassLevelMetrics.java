@@ -9,6 +9,9 @@ package Asgn3;
  * D -->distance (|A + I - 1|)
  * Ca --> afferent coupling (incoming dependencies)
  * Ce --> efferent coupling (outgoing dependencies)
+ *
+ * @author Megan Fung
+ *  @version 1.0
  */
 public class ClassLevelMetrics {
 

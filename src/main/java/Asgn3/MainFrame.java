@@ -7,6 +7,9 @@ import java.util.List;
 
 /**
  * combines all components
+ *
+ * @author Megan Fung
+ * @version 1.0
  */
 
 public class MainFrame extends JFrame {
