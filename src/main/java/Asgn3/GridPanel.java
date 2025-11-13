@@ -4,6 +4,8 @@ import java.awt.*;
 import java.util.List;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * grid of squares visualizing file level metrics for .java files in GH folder URL
@@ -23,6 +25,9 @@ public class GridPanel extends JPanel {
     private int clickedSquare = -1;
     private final BottomPanel bottomPanel;
 
+    // logger
+    private static final Logger logger = LoggerFactory.getLogger(GridPanel.class);
+
     /**
      * constructor
      * @param bottomPanel reference so we can update with selected file
@@ -41,7 +46,10 @@ public class GridPanel extends JPanel {
 
             @Override
             public void mouseClicked(MouseEvent e) {  // trigger for square selection
+
+                logger.info("Grid Panel Clicked");
                 squareClicked(e.getPoint());
+
             }
 
             @Override
@@ -66,7 +74,7 @@ public class GridPanel extends JPanel {
         squares = null;
         clickedSquare = -1;
         repaint();
-        bottomPanel.setSelectedFileGrid("");
+        bottomPanel.setMessage("");
 
     }
 
@@ -247,7 +255,7 @@ public class GridPanel extends JPanel {
             if (squares[i] != null && squares[i].contains(point)) {
 
                 clickedSquare = i;  // update square selection
-                bottomPanel.setSelectedFileGrid(files.get(i).getName());  // update bottom panel
+                bottomPanel.setMessage(files.get(i).getName());  // update bottom panel
                 repaint();
                 break;
 

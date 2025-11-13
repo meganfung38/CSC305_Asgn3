@@ -4,6 +4,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * combines all components
@@ -24,10 +26,15 @@ public class MainFrame extends JFrame {
     private final DiagramPanel diagramPanel;
     private final JTabbedPane tabbedPane;
 
+    // logger
+    private static final Logger logger = LoggerFactory.getLogger(MainFrame.class);
+
     /**
      * constructor
      */
     public MainFrame() {
+
+        logger.info("Initializing MainFrame: configuration, environment setup, components setup...");
 
         // config
         setTitle("Assignment 02");
@@ -49,7 +56,7 @@ public class MainFrame extends JFrame {
         bottomPanel = new BottomPanel();
         sidePanel = new SidePanel();
         gridPanel = new GridPanel(bottomPanel);
-        metricsPanel = new MetricsPanel();
+        metricsPanel = new MetricsPanel(bottomPanel);
         diagramPanel = new DiagramPanel();
 
         // create tabs for grid, metrics, and diagram
@@ -74,7 +81,11 @@ public class MainFrame extends JFrame {
      */
     public void onOkClicked(ActionEvent actionEvent) {
 
+        logger.info("Ok Button Clicked: opening GH URL...");
+
         String url = topBar.getUrl().trim();  // get url
+
+        logger.info("Validating GH URL: looking for form: https://github.com/<GH USER>/<REPO NAME>/tree/<BRANCH>/<folder(s)...>");
 
         // validate URL
         if (!url.startsWith("https://github.com/") || !url.contains("/tree/")) {
@@ -83,6 +94,8 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Invalid GH folder URL.\nMust be in form: https://github.com/<GH USER>/<REPO NAME>/tree/<BRANCH>/<folder(s)...>");
             return;
         }
+
+        logger.info("Analyzing GH URL: calculating file level and class level metrics for grid and metrics panel...");
 
         try {
 
@@ -98,20 +111,13 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            logger.info("Analysis Complete: updating panels...");
+
             // update panels
             sidePanel.showStructure(analysis.getFilePaths());
             gridPanel.showMetrics(new ArrayList<>(analysis.getFileMetrics().values()));
             metricsPanel.showMetrics(new ArrayList<>(analysis.getClassMetrics().values()));
             tabbedPane.setSelectedIndex(0);
-
-            for (ClassLevelMetrics metric :  analysis.getClassMetrics().values()) {
-                System.out.println(metric.getClassName() + "--> ");
-                System.out.println("I: " + metric.getI());
-                System.out.println("D: " + metric.getD());
-                System.out.println("Ca: " + metric.getCa());
-                System.out.println("Ce: " + metric.getCe());
-                System.out.println();
-            }
 
         } catch (Exception e)  {
 
@@ -129,7 +135,11 @@ public class MainFrame extends JFrame {
     public void clearGrid() {
 
         gridPanel.clearGrid(); // refresh center panel for new GH URL
+        metricsPanel.showMetrics(List.of());  // refresh center panel for new GH URL
+        sidePanel.clear();  // refresh side panel for new GH URL
         topBar.resetUrl();  // reset top bar for new GH URL
+
+        bottomPanel.setMessage("CLEARED: Ready for new GH URL.");
 
     }
 

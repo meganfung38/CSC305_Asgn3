@@ -8,3 +8,4 @@
 # ASK 
 - do we need a class diagram for this assignment?
 - any other deliverables? 
+- how descriptive does logging have to be? 

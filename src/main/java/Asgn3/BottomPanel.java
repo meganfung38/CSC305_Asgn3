@@ -35,12 +35,12 @@ public class BottomPanel extends JPanel {
 
     /**
      * updates displayed file name
-     * @param file name of selected file
+     * @param msg name of selected file
      */
-    public void setSelectedFileGrid(String file) {
+    public void setMessage(String msg) {
 
         // write to text field
-        selectedFileGrid.setText(file);
+        selectedFileGrid.setText(msg);
 
     }
 

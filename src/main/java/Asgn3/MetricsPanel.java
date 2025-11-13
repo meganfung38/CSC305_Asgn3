@@ -1,8 +1,11 @@
 package Asgn3;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * displays 2d diagram of analyzed class level metrics for classes (represented as circles) in GH repo
@@ -19,15 +22,41 @@ public class MetricsPanel extends JPanel {
 
     // components
     private List<ClassLevelMetrics> classes;
+    private List<Rectangle> circleClasses;
+    private final BottomPanel bottomPanel;
+
+    // logger
+    private static final Logger logger = LoggerFactory.getLogger(MetricsPanel.class);
 
     /**
      * constructor
      */
-    public MetricsPanel() {
+    public MetricsPanel(BottomPanel bottomPanel) {
 
         // config
         setBackground(Color.white);
         setToolTipText("");  // enable tooltip
+
+        // initialize components
+        this.bottomPanel = bottomPanel;
+
+        // enable mouse clicking events
+        MouseAdapter mouseAdapter = new MouseAdapter() {
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+
+                logger.info("Class Circle Clicked");
+                circleClicked(e.getPoint());
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) { circleHover(e.getPoint()); }
+
+        };
+
+        addMouseListener(mouseAdapter);
+        addMouseMotionListener(mouseAdapter);
 
     }
 
@@ -93,6 +122,11 @@ public class MetricsPanel extends JPanel {
         g2d.drawLine(pad, height - pad, pad, pad);
         g2d.drawLine(pad, pad, width - pad, height - pad);
 
+        // store circle clickable regions
+        circleClasses = new java.util.ArrayList<>();
+
+        int radius = 12; // circle radius
+
         // iterate over class metrics
         for (ClassLevelMetrics classMetric : classes) {
 
@@ -100,13 +134,17 @@ public class MetricsPanel extends JPanel {
             int x = pad + (int)(plotWidth * classMetric.getI());
             int y = height - pad - (int)(plotHeight * classMetric.getA());
 
+            // save class's clickable region
+            Rectangle circleClass = new Rectangle(x - radius, y - radius, radius * 2, radius * 2);
+            circleClasses.add(circleClass);
+
             // draw circle per class
             g2d.setColor(Color.blue);
-            g2d.fillOval(x - 9, y - 9, 9, 9);
+            g2d.fillOval(x - radius, y - radius, radius * 2, radius * 2);
             g2d.setColor(Color.darkGray);
-            g2d.drawOval(x - 9, y - 9, 9, 9);
+            g2d.drawOval(x - radius, y - radius, radius * 2, radius * 2);
             g2d.setFont(new Font("SansSerif", Font.BOLD, 13));
-            g2d.drawString(classMetric.getClassName(), x + 13, y + 4);
+            g2d.drawString(classMetric.getClassName(), x + radius, y + 4);
 
         }
 
@@ -161,6 +199,46 @@ public class MetricsPanel extends JPanel {
         }
 
         return null;  // mouse is not currently over a file
+
+    }
+
+    /**
+     * helper function to trigger hover tooltip
+     * @param p point clicked
+     */
+    private void circleHover(Point p) {
+
+        // trigger tooltip
+        setToolTipText(getToolTipText(new MouseEvent(this, 0, 0, 0, p.x, p.y, 0, false)));
+
+    }
+
+    /**
+     * helper function to trigger bottom panel updates
+     * @param p point clicked
+     */
+    private void circleClicked(Point p) {
+
+        // check if there are no classes
+        if (classes == null || circleClasses == null) { return; }
+
+        // store class names
+        List<String> clickedClasses = new java.util.ArrayList<>();
+
+        // iterate over all circle regions
+        for (int i = 0; i < circleClasses.size(); i++) {
+
+            // point clicked is within region of a circle
+            Rectangle curr = circleClasses.get(i);
+            if (curr.contains(p)) { clickedClasses.add(classes.get(i).getClassName()); }
+
+        }
+
+        // update bottom panel with class name(s)
+        if (!clickedClasses.isEmpty()) {
+            bottomPanel.setMessage(String.join(", ", clickedClasses));
+            repaint();
+        }
 
     }
 

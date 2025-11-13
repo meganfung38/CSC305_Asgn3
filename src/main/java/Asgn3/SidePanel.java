@@ -27,7 +27,7 @@ public class SidePanel extends JPanel {
         setPreferredSize(new Dimension(220,600));
 
         // initialize components
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode("src");  // default root label is src
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("");  // default root label is src
         treeModel = new DefaultTreeModel(root); // manages all files in project directory (represented as nodes)
         tree = new JTree(treeModel);  // JTree to manage full project structure
 
@@ -92,6 +92,17 @@ public class SidePanel extends JPanel {
         DefaultMutableTreeNode folderNode = new DefaultMutableTreeNode(folder);
         current.add(folderNode);
         return folderNode;
+
+    }
+
+    /**
+     * clears project directory side panel
+     */
+    public void clear() {
+
+        DefaultMutableTreeNode emptyRoot = new DefaultMutableTreeNode("");
+        treeModel.setRoot(emptyRoot);
+        tree.setModel(treeModel);
 
     }
 
