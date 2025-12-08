@@ -54,7 +54,7 @@ public class SidePanel extends JPanel {
             DefaultMutableTreeNode current = root; // current folder
             for (int i = 0; i < folders.length; i++) {
                 String folder = folders[i];
-                if (folder.isBlank()) { continue; }  // skip empty
+                if (folder.isBlank()) { continue; }
 
                 boolean isFile = (i == folders.length - 1);  // no more subfolders
                 if (isFile) {

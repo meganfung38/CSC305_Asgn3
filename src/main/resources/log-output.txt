@@ -1,0 +1,354 @@
+ANALYSIS RESULTS: 
+
+FILE-LEVEL METRICS:
+-------------------
+File: SidePanel.java
+  Size: 86 lines
+  Complexity: 6
+
+File: JavaClass.java
+  Size: 38 lines
+  Complexity: 0
+
+File: MethodAnalyzer.java
+  Size: 80 lines
+  Complexity: 4
+
+File: SingletonDetector.java
+  Size: 27 lines
+  Complexity: 0
+
+File: GHRepoAnalyzed.java
+  Size: 39 lines
+  Complexity: 0
+
+File: PlantUMLGenerator.java
+  Size: 111 lines
+  Complexity: 13
+
+File: DiagramPanel.java
+  Size: 50 lines
+  Complexity: 0
+
+File: MainFrame.java
+  Size: 115 lines
+  Complexity: 2
+
+File: TopBar.java
+  Size: 42 lines
+  Complexity: 0
+
+File: ClassLevelMetrics.java
+  Size: 168 lines
+  Complexity: 6
+
+File: MetricsPanel.java
+  Size: 183 lines
+  Complexity: 9
+
+File: UMLPanel.java
+  Size: 67 lines
+  Complexity: 2
+
+File: GHRepoAnalyzer.java
+  Size: 512 lines
+  Complexity: 47
+
+File: Main.java
+  Size: 17 lines
+  Complexity: 0
+
+File: GHOperations.java
+  Size: 67 lines
+  Complexity: 1
+
+File: MenuBar.java
+  Size: 50 lines
+  Complexity: 0
+
+File: BottomPanel.java
+  Size: 35 lines
+  Complexity: 0
+
+File: FileLevelMetrics.java
+  Size: 31 lines
+  Complexity: 0
+
+File: GHInfo.java
+  Size: 11 lines
+  Complexity: 0
+
+File: GridPanel.java
+  Size: 199 lines
+  Complexity: 12
+
+File: FieldAnalyzer.java
+  Size: 158 lines
+  Complexity: 5
+
+File: EnvLoader.java
+  Size: 28 lines
+  Complexity: 1
+
+
+CLASS-LEVEL METRICS (Internal Classes Only):
+---------------------------------------------
+Note: External classes (JPanel, JFrame, etc.) are NOT included here.
+They only appear in the UML diagram for completeness.
+
+Class: DiagramPanel [class]
+  Ca (afferent): 1
+  Ce (efferent): 4
+  Instability: 0.800
+  Distance: 0.200
+  Extends: [JPanel]
+  Compositions: [UMLPanel]
+  Dependencies: [PlantUMLGenerator, GHRepoAnalyzed]
+
+Class: MetricsPanel [class]
+  Ca (afferent): 1
+  Ce (efferent): 3
+  Instability: 0.750
+  Distance: 0.250
+  Extends: [JPanel]
+  Aggregations: [BottomPanel]
+  Dependencies: [ClassLevelMetrics]
+
+Class: SidePanel [class]
+  Ca (afferent): 1
+  Ce (efferent): 1
+  Instability: 0.500
+  Distance: 0.500
+  Extends: [JPanel]
+
+Class: GHOperations [class]
+  Ca (afferent): 2
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Class: PlantUMLGenerator [class]
+  Ca (afferent): 1
+  Ce (efferent): 2
+  Instability: 0.667
+  Distance: 0.333
+  Dependencies: [ClassLevelMetrics, GHRepoAnalyzed]
+
+Class: MenuBar [class]
+  Ca (afferent): 1
+  Ce (efferent): 2
+  Instability: 0.667
+  Distance: 0.333
+  Extends: [JMenuBar]
+  Dependencies: [MainFrame]
+
+Class: MethodAnalyzer [class]
+  Ca (afferent): 1
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Class: SingletonDetector [class]
+  Ca (afferent): 1
+  Ce (efferent): 1
+  Instability: 0.500
+  Distance: 0.500
+  Dependencies: [JavaClass]
+
+Class: FieldAnalyzer [class]
+  Ca (afferent): 1
+  Ce (efferent): 1
+  Instability: 0.500
+  Distance: 0.500
+  Dependencies: [FieldInfo]
+
+Class: EnvLoader [class]
+  Ca (afferent): 1
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Class: MainFrame [class]
+  Ca (afferent): 2
+  Ce (efferent): 12
+  Instability: 0.857
+  Distance: 0.143
+  Extends: [JFrame]
+  Compositions: [DiagramPanel, MetricsPanel, SidePanel, GHOperations, GridPanel, BottomPanel, TopBar]
+  Dependencies: [EnvLoader, GHRepoAnalyzed, GHRepoAnalyzer]
+
+Class: GHRepoAnalyzer [class]
+  Ca (afferent): 1
+  Ce (efferent): 9
+  Instability: 0.900
+  Distance: 0.100
+  Aggregations: [GHOperations]
+  Dependencies: [JavaClass, ClassLevelMetrics, MethodAnalyzer, SingletonDetector, FieldAnalyzer, GHRepoAnalyzed, FileLevelMetrics, FieldInfo]
+
+Class: JavaClass [class]
+  Ca (afferent): 2
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Class: ClassLevelMetrics [class]
+  Ca (afferent): 4
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Class: GridPanel [class]
+  Ca (afferent): 1
+  Ce (efferent): 3
+  Instability: 0.750
+  Distance: 0.250
+  Extends: [JPanel]
+  Aggregations: [BottomPanel]
+  Dependencies: [FileLevelMetrics]
+
+Class: BottomPanel [class]
+  Ca (afferent): 3
+  Ce (efferent): 1
+  Instability: 0.250
+  Distance: 0.750
+  Extends: [JPanel]
+
+Class: TopBar [class]
+  Ca (afferent): 1
+  Ce (efferent): 1
+  Instability: 0.500
+  Distance: 0.500
+  Extends: [JPanel]
+
+Class: UMLPanel [class]
+  Ca (afferent): 1
+  Ce (efferent): 1
+  Instability: 0.500
+  Distance: 0.500
+  Extends: [JPanel]
+
+Class: GHRepoAnalyzed [class]
+  Ca (afferent): 4
+  Ce (efferent): 2
+  Instability: 0.333
+  Distance: 0.667
+
+Class: Main [class]
+  Ca (afferent): 0
+  Ce (efferent): 1
+  Instability: 1.000
+  Distance: 0.000
+
+Class: FileLevelMetrics [class]
+  Ca (afferent): 3
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Class: FieldInfo [class]
+  Ca (afferent): 2
+  Ce (efferent): 0
+  Instability: 0.000
+  Distance: 1.000
+
+Overall Abstractness: 0.000
+
+PLANTUML SOURCE (with External Classes): 
+
+@startuml
+!pragma layout smetana
+hide empty members
+
+class MetricsPanel << (C,#90EE90) >> {
+}
+class JPanel << (C,#90EE90) >> {
+}
+class GHOperations << (C,#90EE90) >> {
+}
+class PlantUMLGenerator << (C,#90EE90) >> {
+}
+class MenuBar << (C,#90EE90) >> {
+}
+class FieldAnalyzer << (C,#90EE90) >> {
+}
+class EnvLoader << (C,#90EE90) >> {
+}
+class MainFrame << (C,#90EE90) >> {
+}
+class JFrame << (C,#90EE90) >> {
+}
+class GridPanel << (C,#90EE90) >> {
+}
+class DiagramPanel << (C,#90EE90) >> {
+}
+class SidePanel << (C,#90EE90) >> {
+}
+class MethodAnalyzer << (C,#90EE90) >> {
+}
+class SingletonDetector << (C,#90EE90) >> {
+}
+class GHRepoAnalyzer << (C,#90EE90) >> {
+}
+class JavaClass << (C,#90EE90) >> {
+}
+class ClassLevelMetrics << (C,#90EE90) >> {
+}
+class BottomPanel << (C,#90EE90) >> {
+}
+class TopBar << (C,#90EE90) >> {
+}
+class UMLPanel << (C,#90EE90) >> {
+}
+class GHRepoAnalyzed << (C,#90EE90) >> {
+}
+class Main << (C,#90EE90) >> {
+}
+class FileLevelMetrics << (C,#90EE90) >> {
+}
+class FieldInfo << (C,#90EE90) >> {
+}
+class JMenuBar << (C,#90EE90) >> {
+}
+
+MetricsPanel --|> JPanel
+MetricsPanel o-- BottomPanel
+MetricsPanel ..> ClassLevelMetrics
+PlantUMLGenerator ..> ClassLevelMetrics
+PlantUMLGenerator ..> GHRepoAnalyzed
+MenuBar --|> JMenuBar
+MenuBar ..> MainFrame
+FieldAnalyzer ..> FieldInfo
+MainFrame --|> JFrame
+MainFrame *-- DiagramPanel
+MainFrame *-- MetricsPanel
+MainFrame *-- SidePanel
+MainFrame *-- GHOperations
+MainFrame *-- GridPanel
+MainFrame *-- BottomPanel
+MainFrame *-- TopBar
+MainFrame ..> EnvLoader
+MainFrame ..> GHRepoAnalyzed
+MainFrame ..> GHRepoAnalyzer
+GridPanel --|> JPanel
+GridPanel o-- BottomPanel
+GridPanel ..> FileLevelMetrics
+DiagramPanel --|> JPanel
+DiagramPanel *-- UMLPanel
+DiagramPanel ..> PlantUMLGenerator
+DiagramPanel ..> GHRepoAnalyzed
+SidePanel --|> JPanel
+SingletonDetector ..> JavaClass
+GHRepoAnalyzer o-- GHOperations
+GHRepoAnalyzer ..> JavaClass
+GHRepoAnalyzer ..> ClassLevelMetrics
+GHRepoAnalyzer ..> MethodAnalyzer
+GHRepoAnalyzer ..> SingletonDetector
+GHRepoAnalyzer ..> FieldAnalyzer
+GHRepoAnalyzer ..> GHRepoAnalyzed
+GHRepoAnalyzer ..> FileLevelMetrics
+GHRepoAnalyzer ..> FieldInfo
+BottomPanel --|> JPanel
+TopBar --|> JPanel
+UMLPanel --|> JPanel
+
+@enduml

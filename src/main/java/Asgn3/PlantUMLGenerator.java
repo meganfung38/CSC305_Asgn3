@@ -1,6 +1,9 @@
 package Asgn3;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * generates PlantUML syntax from analyzed class metrics
@@ -18,25 +21,75 @@ public class PlantUMLGenerator {
     public static String generateUML(GHRepoAnalyzed analysis) {
         StringBuilder uml = new StringBuilder();
 
+        // create a copy of classMetrics and add external classes (only for diagram)
+        Map<String, ClassLevelMetrics> diagramMetrics = new HashMap<>(analysis.getClassMetrics());
+        addExternalClasses(diagramMetrics);
+
         // header config
         uml.append("@startuml\n");
         uml.append("!pragma layout smetana\n");
         uml.append("hide empty members\n\n");
 
         // generate class declarations with stereotypes
-        for (ClassLevelMetrics classMetric : analysis.getClassMetrics().values()) {
+        for (ClassLevelMetrics classMetric : diagramMetrics.values()) {
             uml.append(generateClassDeclaration(classMetric));
         }
 
         uml.append("\n");
 
         // generate all relationships
-        for (ClassLevelMetrics classMetric : analysis.getClassMetrics().values()) {
+        for (ClassLevelMetrics classMetric : diagramMetrics.values()) {
             uml.append(generateRelationships(classMetric));
         }
 
         uml.append("\n@enduml");
         return uml.toString();
+    }
+    
+    /**
+     * adds placeholder ClassLevelMetrics for external classes (JPanel, etc.)
+     * only used for diagram generation, not for metrics calculations
+     * @param classMetrics existing metrics map (will be modified)
+     */
+    private static void addExternalClasses(Map<String, ClassLevelMetrics> classMetrics) {
+        Set<String> externalClasses = new HashSet<>();
+        Set<String> externalInterfaces = new HashSet<>();
+        Set<String> externalExtends = new HashSet<>();
+
+        // collect all referenced classes and track their source
+        for (ClassLevelMetrics metric : classMetrics.values()) {
+            externalExtends.addAll(metric.getExtendsClasses());
+            externalInterfaces.addAll(metric.getImplementsInterfaces());
+            externalClasses.addAll(metric.getCompositions());
+            externalClasses.addAll(metric.getAggregations());
+            externalClasses.addAll(metric.getAssociations());
+            externalClasses.addAll(metric.getDependencies());
+        }
+
+        // combine all external references
+        externalClasses.addAll(externalExtends);
+        externalClasses.addAll(externalInterfaces);
+
+        // add placeholder metrics for external classes with correct type
+        for (String externalClass : externalClasses) {
+            if (!classMetrics.containsKey(externalClass)) {
+                ClassLevelMetrics external = new ClassLevelMetrics(externalClass);
+                
+                // determine type based on how it's used
+                if (externalInterfaces.contains(externalClass)) {
+                    external.setClassType("interface");
+                    external.setAbstract(true);
+                } else if (externalExtends.contains(externalClass)) {
+                    external.setClassType("class");
+                    external.setAbstract(false);
+                } else {
+                    external.setClassType("class");
+                    external.setAbstract(false);
+                }
+                
+                classMetrics.put(externalClass, external);
+            }
+        }
     }
 
     /**
@@ -97,7 +150,7 @@ public class PlantUMLGenerator {
             sb.append(className).append(" -- ").append(associated).append("\n");
         }
 
-        // dependency (only if not already related via extends/implements/composition/aggregation/association)
+        // dependency 
         for (String dependency : metric.getDependencies()) {
             if (!isStrongerRelationship(metric, dependency)) {
                 sb.append(className).append(" ..> ").append(dependency).append("\n");

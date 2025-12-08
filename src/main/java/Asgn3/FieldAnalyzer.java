@@ -42,6 +42,9 @@ public class FieldAnalyzer {
 
     /**
      * extracts all field declarations from a class body
+     * only scans the top of the class (before first method/constructor)
+     * to avoid false positives from local variables
+     * 
      * @param classBody source code of class body
      * @param availableClasses set of class names in the project
      * @return list of fields that reference other classes
@@ -49,27 +52,49 @@ public class FieldAnalyzer {
     public static List<FieldInfo> extractFields(String classBody, Set<String> availableClasses) {
         List<FieldInfo> fields = new ArrayList<>();
 
-        String cleaned = cleanForFieldExtraction(classBody);
+        // extract only the field declaration section (before first method/constructor)
+        String fieldSection = extractFieldSection(classBody);
+        String cleaned = cleanForFieldExtraction(fieldSection);
 
-        Pattern fieldPattern = Pattern.compile(
-                "\\b((?:public|protected|private|final|static|transient|volatile)\\s+)*" +
-                "(\\w+)\\s+" +
-                "(\\w+)\\s*[;=]"
-        );
-
-        Matcher matcher = fieldPattern.matcher(cleaned);
-
-        while (matcher.find()) {
-            String modifiers = matcher.group(1) != null ? matcher.group(1) : "";
-            String fieldType = matcher.group(2);
-            String fieldName = matcher.group(3);
-
-            // only track fields that reference other classes in our analysis
-            if (availableClasses.contains(fieldType)) {
-                boolean isFinal = modifiers.contains("final");
-                boolean isStatic = modifiers.contains("static");
-
-                fields.add(new FieldInfo(fieldType, fieldName, isFinal, isStatic));
+        // simple string-based field extraction (no regex backtracking)
+        for (String className : availableClasses) {
+            int index = 0;
+            while ((index = cleaned.indexOf(className, index)) != -1) {
+                // check word boundaries
+                boolean startOk = (index == 0) || !Character.isJavaIdentifierPart(cleaned.charAt(index - 1));
+                boolean endOk = (index + className.length() >= cleaned.length()) || 
+                               !Character.isJavaIdentifierPart(cleaned.charAt(index + className.length()));
+                
+                if (startOk && endOk) {
+                    // extract field name after the type
+                    int afterType = index + className.length();
+                    while (afterType < cleaned.length() && Character.isWhitespace(cleaned.charAt(afterType))) {
+                        afterType++;
+                    }
+                    
+                    StringBuilder fieldName = new StringBuilder();
+                    while (afterType < cleaned.length() && Character.isJavaIdentifierPart(cleaned.charAt(afterType))) {
+                        fieldName.append(cleaned.charAt(afterType));
+                        afterType++;
+                    }
+                    
+                    if (fieldName.length() > 0) {
+                        // check for field end marker
+                        while (afterType < cleaned.length() && Character.isWhitespace(cleaned.charAt(afterType))) {
+                            afterType++;
+                        }
+                        if (afterType < cleaned.length() && (cleaned.charAt(afterType) == ';' || cleaned.charAt(afterType) == '=')) {
+                            // look back for modifiers
+                            int lookBack = Math.max(0, index - 200);
+                            String precedingText = cleaned.substring(lookBack, index);
+                            boolean isFinal = precedingText.contains("final");
+                            boolean isStatic = precedingText.contains("static");
+                            
+                            fields.add(new FieldInfo(className, fieldName.toString(), isFinal, isStatic));
+                        }
+                    }
+                }
+                index++;
             }
         }
 
@@ -98,12 +123,19 @@ public class FieldAnalyzer {
         
         // composition 
         if (isPrivateField(field, classBody)) {
-            Pattern newPattern = Pattern.compile(
-                    "\\b" + Pattern.quote(field.fieldName) + "\\s*=\\s*new\\s+" + 
-                    Pattern.quote(field.fieldType)
-            );
-            if (newPattern.matcher(classBody).find()) {
-                return "composition";
+            // check for "fieldName = new FieldType" pattern
+            String[] patterns = {
+                field.fieldName + "=new" + field.fieldType,
+                field.fieldName + " =new" + field.fieldType,
+                field.fieldName + "= new" + field.fieldType,
+                field.fieldName + " = new" + field.fieldType,
+                field.fieldName + " = new " + field.fieldType
+            };
+            
+            for (String pattern : patterns) {
+                if (classBody.contains(pattern)) {
+                    return "composition";
+                }
             }
         }
         
@@ -123,13 +155,16 @@ public class FieldAnalyzer {
      * @return true if field is declared as private
      */
     private static boolean isPrivateField(FieldInfo field, String classBody) {
-        // look for private modifier in field declaration
-        Pattern privatePattern = Pattern.compile(
-                "\\bprivate\\s+(?:[\\w<>\\[\\],\\s]+\\s+)*" + 
-                Pattern.quote(field.fieldType) + "\\s+" + 
-                Pattern.quote(field.fieldName)
-        );
-        return privatePattern.matcher(classBody).find();
+        // look for "private" before field name within reasonable distance
+        int privateIdx = classBody.indexOf("private");
+        while (privateIdx != -1) {
+            int fieldIdx = classBody.indexOf(field.fieldName, privateIdx);
+            if (fieldIdx != -1 && fieldIdx - privateIdx < 200) {
+                return true;
+            }
+            privateIdx = classBody.indexOf("private", privateIdx + 1);
+        }
+        return false;
     }
     
     /**
@@ -139,48 +174,121 @@ public class FieldAnalyzer {
      * @return true if field is set via constructor parameter or setter method
      */
     private static boolean isPassedFromOutside(FieldInfo field, String classBody) {
-        Pattern constructorParamPattern = Pattern.compile(
-                "\\b\\w+\\s*\\([^)]*\\b" + 
-                Pattern.quote(field.fieldType) + "\\s+" + 
-                "\\w+[^)]*\\)"
-        );
+        String fieldType = field.fieldType;
+        String fieldName = field.fieldName;
         
-        Pattern setterPattern = Pattern.compile(
-                "\\b(?:void|public|protected)\\s+\\w*set\\w*\\s*\\([^)]*" +
-                Pattern.quote(field.fieldType) + "\\s+\\w+[^)]*\\)"
-        );
+        // check for field type in method/constructor parameters
+        if (classBody.contains("(" + fieldType) || classBody.contains(", " + fieldType)) {
+            return true;
+        }
         
-        // method parameter
-        Pattern assignmentFromParam = Pattern.compile(
-                "(?:this\\.)?" + Pattern.quote(field.fieldName) + "\\s*=\\s*\\w+(?!\\s*new)"
-        );
+        // check for setter methods
+        if ((classBody.contains("set") || classBody.contains("Set")) && classBody.contains(fieldType)) {
+            return true;
+        }
         
-        return constructorParamPattern.matcher(classBody).find() ||
-               setterPattern.matcher(classBody).find() ||
-               assignmentFromParam.matcher(classBody).find();
+        // check for assignment from parameter (field = param, not field = new)
+        if (classBody.contains(fieldName + " =") || classBody.contains(fieldName + "=")) {
+            int assignIdx = classBody.indexOf(fieldName + " =");
+            if (assignIdx == -1) assignIdx = classBody.indexOf(fieldName + "=");
+            if (assignIdx != -1) {
+                int afterEquals = classBody.indexOf("=", assignIdx) + 1;
+                if (afterEquals < classBody.length()) {
+                    String afterAssign = classBody.substring(afterEquals, Math.min(afterEquals + 10, classBody.length())).trim();
+                    if (!afterAssign.startsWith("new")) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**
+     * extracts the field declaration section of a class
+     * stops at first method or constructor to avoid local variables
+     * 
+     * @param classBody original class body
+     * @return field section only
+     */
+    private static String extractFieldSection(String classBody) {
+        // find first opening brace after closing parenthesis (method/constructor signature)
+        // pattern: ) ... { indicates method/constructor start
+        int firstMethodStart = -1;
+        
+        for (int i = 0; i < classBody.length(); i++) {
+            if (classBody.charAt(i) == ')') {
+                // found closing paren, now look for opening brace (skip whitespace)
+                int j = i + 1;
+                while (j < classBody.length() && Character.isWhitespace(classBody.charAt(j))) {
+                    j++;
+                }
+                // check if next non-whitespace char is opening brace
+                if (j < classBody.length() && classBody.charAt(j) == '{') {
+                    firstMethodStart = j;
+                    break;
+                }
+            }
+        }
+        
+        // if no method found, use entire body (rare case: class with only fields)
+        if (firstMethodStart == -1) {
+            return classBody;
+        }
+        
+        // return everything before first method
+        return classBody.substring(0, firstMethodStart);
+    }
+    
+    /**
      * cleans class body for field extraction
-     * removes strings, comments, and method bodies
+     * removes strings and comments (no regex backtracking)
      *
      * @param classBody original class body
      * @return cleaned version
      */
     private static String cleanForFieldExtraction(String classBody) {
-        String cleaned = classBody;
-
-        // remove string literals
-        cleaned = cleaned.replaceAll("\"(\\\\.|[^\"\\\\])*\"", "");
-
-        // remove comments
-        cleaned = cleaned.replaceAll("(?s)/\\*.*?\\*/", "");
-        cleaned = cleaned.replaceAll("//.*", "");
-
-        // remove method bodies (content between { } after method declarations)
-        cleaned = cleaned.replaceAll("\\{[^{}]*\\}", "");
-
-        return cleaned;
+        StringBuilder result = new StringBuilder(classBody);
+        
+        boolean inString = false;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        char prevChar = '\0';
+        
+        for (int i = 0; i < result.length(); i++) {
+            char c = result.charAt(i);
+            
+            if (c == '"' && prevChar != '\\' && !inLineComment && !inBlockComment) {
+                inString = !inString;
+                result.setCharAt(i, ' ');
+            } else if (inString) {
+                if (c != '\n') result.setCharAt(i, ' ');
+            }
+            else if (!inString && !inBlockComment && c == '/' && i + 1 < result.length() && result.charAt(i + 1) == '/') {
+                inLineComment = true;
+                result.setCharAt(i, ' ');
+            } else if (inLineComment) {
+                if (c == '\n') {
+                    inLineComment = false;
+                } else {
+                    result.setCharAt(i, ' ');
+                }
+            }
+            else if (!inString && c == '/' && i + 1 < result.length() && result.charAt(i + 1) == '*') {
+                inBlockComment = true;
+                result.setCharAt(i, ' ');
+            } else if (inBlockComment) {
+                result.setCharAt(i, ' ');
+                if (prevChar == '*' && c == '/') {
+                    inBlockComment = false;
+                }
+            }
+            
+            prevChar = c;
+        }
+        
+        return result.toString();
     }
 }
 

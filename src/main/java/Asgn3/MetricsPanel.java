@@ -198,7 +198,7 @@ public class MetricsPanel extends JPanel {
 
         }
 
-        return null;  // mouse is not currently over a file
+        return null;
 
     }
 

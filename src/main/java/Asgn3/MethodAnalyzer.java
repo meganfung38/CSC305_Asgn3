@@ -28,25 +28,22 @@ public class MethodAnalyzer {
         String cleaned = cleanBody(classBody);
 
         for (String className : availableClasses) {
-            // method parameters
-            Pattern paramPattern = Pattern.compile(
-                    "\\((?:[^()]*,\\s*)*" + Pattern.quote(className) + "\\s+\\w+[^)]*\\)"
-            );
-
-            // return type
-            Pattern returnPattern = Pattern.compile(
-                    "\\b" + Pattern.quote(className) + "\\s+\\w+\\s*\\("
-            );
-
-            // local variable
-            Pattern localVarPattern = Pattern.compile(
-                    "\\b" + Pattern.quote(className) + "\\s+\\w+\\s*="
-            );
-
-            if (paramPattern.matcher(cleaned).find() ||
-                returnPattern.matcher(cleaned).find() ||
-                localVarPattern.matcher(cleaned).find()) {
-                usages.add(className);
+            // string checks for class usage in signatures and static calls
+            String[] patterns = {
+                className + " ",
+                "(" + className + " ",
+                ", " + className + " ",
+                " " + className + " ",
+                className + ".",
+                "(" + className + ".",
+                " " + className + "."
+            };
+            
+            for (String pattern : patterns) {
+                if (cleaned.contains(pattern)) {
+                    usages.add(className);
+                    break;
+                }
             }
         }
 
@@ -67,13 +64,10 @@ public class MethodAnalyzer {
         String cleaned = cleanBody(classBody);
 
         for (String className : availableClasses) {
-            // find getInstance function 
-            Pattern singletonPattern = Pattern.compile(
-                    "\\b" + Pattern.quote(className) + 
-                    "\\.(?:getInstance|instance|get)\\s*\\("
-            );
-
-            if (singletonPattern.matcher(cleaned).find()) {
+            // string checks for singleton access patterns
+            if (cleaned.contains(className + ".getInstance") ||
+                cleaned.contains(className + ".instance") ||
+                cleaned.contains(className + ".get(")) {
                 singletons.add(className);
             }
         }
@@ -82,15 +76,51 @@ public class MethodAnalyzer {
     }
 
     /**
-     * cleans body by removing strings and comments
+     * cleans body by removing strings and comments (no regex backtracking)
      * @param body source code
      * @return cleaned version
      */
     private static String cleanBody(String body) {
-        return body
-                .replaceAll("\"(\\\\.|[^\"\\\\])*\"", "")
-                .replaceAll("(?s)/\\*.*?\\*/", "")
-                .replaceAll("//.*", "");
+        StringBuilder result = new StringBuilder(body);
+        
+        boolean inString = false;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        char prevChar = '\0';
+        
+        for (int i = 0; i < result.length(); i++) {
+            char c = result.charAt(i);
+            
+            if (c == '"' && prevChar != '\\' && !inLineComment && !inBlockComment) {
+                inString = !inString;
+                result.setCharAt(i, ' ');
+            } else if (inString) {
+                if (c != '\n') result.setCharAt(i, ' ');
+            }
+            else if (!inString && !inBlockComment && c == '/' && i + 1 < result.length() && result.charAt(i + 1) == '/') {
+                inLineComment = true;
+                result.setCharAt(i, ' ');
+            } else if (inLineComment) {
+                if (c == '\n') {
+                    inLineComment = false;
+                } else {
+                    result.setCharAt(i, ' ');
+                }
+            }
+            else if (!inString && c == '/' && i + 1 < result.length() && result.charAt(i + 1) == '*') {
+                inBlockComment = true;
+                result.setCharAt(i, ' ');
+            } else if (inBlockComment) {
+                result.setCharAt(i, ' ');
+                if (prevChar == '*' && c == '/') {
+                    inBlockComment = false;
+                }
+            }
+            
+            prevChar = c;
+        }
+        
+        return result.toString();
     }
 }
 

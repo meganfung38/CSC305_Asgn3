@@ -42,10 +42,24 @@ public class UMLPanel extends JPanel {
             // make it displayable
             image = ImageIO.read(new ByteArrayInputStream(os.toByteArray()));
 
+        } catch (StackOverflowError e) {
+            System.err.println("StackOverflowError in PlantUML rendering");
+            image = null;
         } catch (IOException e) {
             e.printStackTrace();
             image = null;
+        } catch (Exception e) {
+            System.err.println("Error in PlantUML rendering: " + e.getMessage());
+            image = null;
         }
+    }
+    
+    /**
+     * checks if image was successfully loaded
+     * @return true if image exists
+     */
+    public boolean isImageLoaded() {
+        return image != null;
     }
 
     /**

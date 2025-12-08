@@ -18,15 +18,13 @@ public class SingletonDetector {
     public static boolean isSingleton(JavaClass javaClass) {
         String body = javaClass.fullBody;
 
-        boolean hasStaticInstance = Pattern.compile(
-                "(?s)\\bprivate\\s+static\\s+(?:final\\s+)?" +
-                Pattern.quote(javaClass.name) + "\\s+\\w+"
-        ).matcher(body).find();
+        // check for private static instance field
+        boolean hasStaticInstance = (body.contains("private static") && body.contains(javaClass.name)) ||
+                                   (body.contains("private static final") && body.contains(javaClass.name));
 
-        boolean hasGetInstance = Pattern.compile(
-                "(?s)\\bpublic\\s+static\\s+(?:final\\s+)?" +
-                Pattern.quote(javaClass.name) + "\\s+(?:getInstance|instance|get)\\s*\\("
-        ).matcher(body).find();
+        // check for public static getInstance-like method
+        boolean hasGetInstance = (body.contains("public static") && body.contains(javaClass.name)) &&
+                                (body.contains("getInstance(") || body.contains("instance(") || body.contains("get("));
 
         return hasStaticInstance && hasGetInstance;
     }

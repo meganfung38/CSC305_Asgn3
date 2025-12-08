@@ -103,7 +103,6 @@ public class MainFrame extends JFrame {
             GHRepoAnalyzer GHRepoAnalyzer = new GHRepoAnalyzer(ghOperations);
             GHRepoAnalyzed analysis = GHRepoAnalyzer.analyzeFiles(url);
 
-            // nothing to update
             if (analysis.getFileMetrics().isEmpty()) {
                 JOptionPane.showMessageDialog(this, "No .java files found in GH folder");
                 gridPanel.clearGrid();

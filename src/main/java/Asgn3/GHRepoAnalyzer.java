@@ -75,11 +75,11 @@ public class GHRepoAnalyzer {
         // analyze additional relationships (composition, aggregation, association, singleton)
         analyzeRelationships(classes, classMetrics);
 
-        // add placeholder metrics for external classes 
-        addExternalClasses(classMetrics);
-
         // compute class level metrics (A, I, D)
         double A = calculateClassMetrics(classes, classMetrics);
+        
+        // log all metrics for debugging
+        logAnalysisResults(fileMetrics, classMetrics, A);
 
         return new GHRepoAnalyzed(fileMetrics, classMetrics, A, filePaths);
 
@@ -157,18 +157,23 @@ public class GHRepoAnalyzer {
         int count = 0;  // establish a counter
         String[] controlStatements = {"if", "switch", "for", "while"};  // control statements
 
-        // clean content: remove string literals and comments
-        String cleaned = content.replaceAll("\"(\\\\.|[^\"\\\\])*\"", "");
-        cleaned = cleaned.replaceAll("(?s)/\\*.*?\\*/", "");
-        cleaned = cleaned.replaceAll("//.*", "");
+        // clean content: remove string literals and comments (use character-by-character parsing)
+        String cleaned = removeCommentsAndStrings(content);
 
         // iterate through control statements
         for (String controlStatement : controlStatements) {
 
-            // find instances of control statements in content
-            var find_instances = Pattern.compile("\\b" + controlStatement + "\\b").matcher(cleaned);
-            while (find_instances.find()) {
-                count++; // increment counter
+            // find instances with word boundary check (no regex backtracking)
+            int index = 0;
+            while ((index = cleaned.indexOf(controlStatement, index)) != -1) {
+                boolean startOk = (index == 0) || !Character.isJavaIdentifierPart(cleaned.charAt(index - 1));
+                boolean endOk = (index + controlStatement.length() >= cleaned.length()) || 
+                               !Character.isJavaIdentifierPart(cleaned.charAt(index + controlStatement.length()));
+                
+                if (startOk && endOk) {
+                    count++;
+                }
+                index++;
             }
 
         }
@@ -184,46 +189,46 @@ public class GHRepoAnalyzer {
      */
     private List<JavaClass> extractClasses(String fileContent) {
 
-        List<JavaClass> classes = new ArrayList<>();  // create container for objects
+        List<JavaClass> classes = new ArrayList<>();
 
         // remove comments and strings to avoid false matches
         String cleanedContent = removeCommentsAndStrings(fileContent);
 
-        // pattern for class signatures
-        Pattern signaturePattern = Pattern.compile("(?s)\\b(class|interface)\\s+(\\w+)\\s*(.*?)\\{");
+        // use non-greedy pattern WITHOUT dotall mode to prevent catastrophic backtracking
+        // limit the signature part to same-line content only (no newlines in capture group)
+        Pattern signaturePattern = Pattern.compile("\\b(class|interface)\\s+(\\w+)\\s*([^\\{\\n]*)\\{");
         Matcher matcher = signaturePattern.matcher(cleanedContent);
 
         // extract classes
         while (matcher.find()) {
             String classType = matcher.group(1);
             String className = matcher.group(2);
-            String endOfSig = matcher.group(3).trim();  // extends or implements
+            String endOfSig = matcher.group(3).trim();
             
             int openBrace = matcher.end() - 1;
             int closeBrace = findCloseBrace(fileContent, openBrace);
-            if (closeBrace == -1) { continue; }  // skip malformed class
+            if (closeBrace == -1) { continue; }
 
             // create JavaClass
             JavaClass currClass = new JavaClass(className, endOfSig, openBrace, closeBrace);
             currClass.fullBody = fileContent.substring(openBrace, closeBrace + 1);
 
-            // set class type 
+            // set class type
             if (classType.equals("interface")) {
                 currClass.classType = "interface";
             } else {
-                // check if abstract class by looking backwards in cleaned content
+                // check if abstract by looking back
                 int matchStart = matcher.start();
-                int lookBackStart = Math.max(0, matchStart - 100);
+                int lookBackStart = Math.max(0, matchStart - 20);
                 String precedingText = cleanedContent.substring(lookBackStart, matchStart);
                 
-                if (Pattern.compile("\\babstract\\s+class\\s*$").matcher(precedingText).find()) {
+                if (precedingText.contains("abstract")) {
                     currClass.classType = "abstract";
                 } else {
                     currClass.classType = "class";
                 }
             }
 
-            // add to list
             classes.add(currClass);
         }
 
@@ -294,37 +299,68 @@ public class GHRepoAnalyzer {
      */
     private void inspectSignatures(List<JavaClass> classes, Map<String, ClassLevelMetrics> classMetrics) {
 
-        // patterns for dependencies in signatures
-        Pattern extendsPattern = Pattern.compile("\\bextends\\s+(\\w+)");
-        Pattern implementsPattern = Pattern.compile("\\bimplements\\s+([\\w,\\s]+)");
-
         // iterate over extracted classes 
         for (JavaClass javaClass : classes) {
 
             String className = javaClass.name;
             String signatureContent = javaClass.signature;
 
-            // generalization
-            Matcher extendsMatcher = extendsPattern.matcher(signatureContent);
-            if (extendsMatcher.find()) {
-                String parentClass = extendsMatcher.group(1);
-                classMetrics.get(className).incrementCe();
-                classMetrics.get(className).addExtends(parentClass);
-                if (classMetrics.containsKey(parentClass)) {
-                    classMetrics.get(parentClass).incrementCa();
+            // generalization 
+            int extendsIdx = signatureContent.indexOf("extends");
+            if (extendsIdx != -1) {
+                // extract parent class name
+                int start = extendsIdx + 7;
+                while (start < signatureContent.length() && Character.isWhitespace(signatureContent.charAt(start))) {
+                    start++;
+                }
+                StringBuilder parentClassBuilder = new StringBuilder();
+                while (start < signatureContent.length() && Character.isJavaIdentifierPart(signatureContent.charAt(start))) {
+                    parentClassBuilder.append(signatureContent.charAt(start));
+                    start++;
+                }
+                String parentClass = parentClassBuilder.toString();
+                
+                if (!parentClass.isEmpty()) {
+                    classMetrics.get(className).incrementCe();
+                    classMetrics.get(className).addExtends(parentClass);
+                    if (classMetrics.containsKey(parentClass)) {
+                        classMetrics.get(parentClass).incrementCa();
+                    }
                 }
             }
 
-            // realization
-            Matcher implementsMatcher = implementsPattern.matcher(signatureContent);
-            if (implementsMatcher.find()) {
-                String implementations = implementsMatcher.group(1);
-                for (String implementation : implementations.split(",")) {
-                    String interfaceName = implementation.trim();
-                    classMetrics.get(className).incrementCe();
-                    classMetrics.get(className).addImplements(interfaceName);
-                    if (classMetrics.containsKey(interfaceName)) {
-                        classMetrics.get(interfaceName).incrementCa();
+            // realization 
+            int implementsIdx = signatureContent.indexOf("implements");
+            if (implementsIdx != -1) {
+                // extract everything after "implements" up to opening brace
+                int start = implementsIdx + 10;
+                StringBuilder implementsText = new StringBuilder();
+                while (start < signatureContent.length() && signatureContent.charAt(start) != '{') {
+                    implementsText.append(signatureContent.charAt(start));
+                    start++;
+                }
+                
+                // split by comma and process each interface
+                String[] interfaces = implementsText.toString().split(",");
+                for (String interfaceStr : interfaces) {
+                    String interfaceName = interfaceStr.trim();
+                    // extract identifier
+                    StringBuilder cleanName = new StringBuilder();
+                    for (char c : interfaceName.toCharArray()) {
+                        if (Character.isJavaIdentifierPart(c)) {
+                            cleanName.append(c);
+                        } else {
+                            break;
+                        }
+                    }
+                    interfaceName = cleanName.toString();
+                    
+                    if (!interfaceName.isEmpty()) {
+                        classMetrics.get(className).incrementCe();
+                        classMetrics.get(className).addImplements(interfaceName);
+                        if (classMetrics.containsKey(interfaceName)) {
+                            classMetrics.get(interfaceName).incrementCa();
+                        }
                     }
                 }
             }
@@ -355,8 +391,7 @@ public class GHRepoAnalyzer {
                 if (currClassName.equals(otherClassName)) { continue; }
 
                 // check if other class is referenced in body
-                Matcher matcher = Pattern.compile("\\b" + Pattern.quote(otherClassName) + "\\b").matcher(cleanedBody);
-                if (matcher.find()) {  // found reference
+                if (containsWord(cleanedBody, otherClassName)) {  // found reference
                     classMetrics.get(otherClassName).incrementCa();  // increment other class's incoming dependencies
                     classMetrics.get(currClassName).incrementCe();  // increment current class's outgoing dependencies
                 }
@@ -365,50 +400,6 @@ public class GHRepoAnalyzer {
 
     }
 
-    /**
-     * adds placeholder ClassLevelMetrics for external classes
-     * @param classMetrics existing metrics map
-     */
-    private void addExternalClasses(Map<String, ClassLevelMetrics> classMetrics) {
-        Set<String> externalClasses = new HashSet<>();
-        Set<String> externalInterfaces = new HashSet<>();
-        Set<String> externalExtends = new HashSet<>();
-
-        // collect all referenced classes and track their source (implements vs extends)
-        for (ClassLevelMetrics metric : classMetrics.values()) {
-            externalExtends.addAll(metric.getExtendsClasses());
-            externalInterfaces.addAll(metric.getImplementsInterfaces());
-            externalClasses.addAll(metric.getCompositions());
-            externalClasses.addAll(metric.getAggregations());
-            externalClasses.addAll(metric.getAssociations());
-            externalClasses.addAll(metric.getDependencies());
-        }
-
-        // combine all external references
-        externalClasses.addAll(externalExtends);
-        externalClasses.addAll(externalInterfaces);
-
-        // add placeholder metrics for external classes with correct type
-        for (String externalClass : externalClasses) {
-            if (!classMetrics.containsKey(externalClass)) {
-                ClassLevelMetrics external = new ClassLevelMetrics(externalClass);
-                
-                // determine type based on how it's used
-                if (externalInterfaces.contains(externalClass)) {
-                    external.setClassType("interface");
-                    external.setAbstract(true);  // interfaces are abstract
-                } else if (externalExtends.contains(externalClass)) {
-                    external.setClassType("class");  // could be abstract, but we assume concrete
-                    external.setAbstract(false);
-                } else {
-                    external.setClassType("class");  // default for field/method references
-                    external.setAbstract(false);
-                }
-                
-                classMetrics.put(externalClass, external);
-            }
-        }
-    }
 
     /**
      * analyzes class relationships
@@ -474,17 +465,17 @@ public class GHRepoAnalyzer {
 
         String cleanedBody = cleanBody(javaClass.cleanedBody);
 
-        // check for singleton usage (association)
+        // check for singleton usage 
         Set<String> singletonUsages = MethodAnalyzer.findSingletonUsages(cleanedBody, classNames);
         for (String singleton : singletonUsages) {
             classMetrics.get(javaClass.name).addAssociation(singleton);
         }
 
-        // check for temporary usage (dependency)
+        // check for dependency 
         Set<String> temporaryUsages = MethodAnalyzer.findTemporaryUsages(cleanedBody, classNames);
         for (String tempClass : temporaryUsages) {
-            // only add if not already in extends/implements/fields/singletons
-            if (!isAlreadyRelated(javaClass.name, tempClass, classMetrics)) {
+            // skip self-references and already-related classes
+            if (!tempClass.equals(javaClass.name) && !isAlreadyRelated(javaClass.name, tempClass, classMetrics)) {
                 classMetrics.get(javaClass.name).addDependency(tempClass);
             }
         }
@@ -632,12 +623,98 @@ public class GHRepoAnalyzer {
      * @return body of class without strings and comments
      */
     private String cleanBody(String body) {
-
-        return body.
-                replaceAll("\"(\\\\.|[^\"\\\\])*\"", "").
-                replaceAll("(?s)/\\*.*?\\*/", "").
-                replaceAll("//.*", "");
-
+        // reuse the existing removeCommentsAndStrings method
+        return removeCommentsAndStrings(body);
+    }
+    
+    /**
+     * checks if a word appears in text with word boundaries
+     * @param text text to search
+     * @param word word to find
+     * @return true if word found with boundaries
+     */
+    private boolean containsWord(String text, String word) {
+        int index = 0;
+        while ((index = text.indexOf(word, index)) != -1) {
+            boolean startOk = (index == 0) || !Character.isJavaIdentifierPart(text.charAt(index - 1));
+            boolean endOk = (index + word.length() >= text.length()) || 
+                           !Character.isJavaIdentifierPart(text.charAt(index + word.length()));
+            
+            if (startOk && endOk) {
+                return true;
+            }
+            index++;
+        }
+        return false;
+    }
+    
+    /**
+     * logs all analysis results for debugging
+     * @param fileMetrics file-level metrics
+     * @param classMetrics class-level metrics (INTERNAL classes only, no external dependencies)
+     * @param abstractness overall abstractness
+     */
+    private void logAnalysisResults(Map<String, FileLevelMetrics> fileMetrics, 
+                                    Map<String, ClassLevelMetrics> classMetrics, 
+                                    double abstractness) {
+        System.out.println("\nANALYSIS RESULTS: \n");
+        
+        // file metrics
+        System.out.println("FILE-LEVEL METRICS:");
+        System.out.println("-------------------");
+        for (Map.Entry<String, FileLevelMetrics> entry : fileMetrics.entrySet()) {
+            FileLevelMetrics fm = entry.getValue();
+            System.out.printf("File: %s\n", entry.getKey());
+            System.out.printf("  Size: %d lines\n", fm.getSize());
+            System.out.printf("  Complexity: %d\n\n", fm.getComplexity());
+        }
+        
+        // class metrics (internal only)
+        System.out.println("\nCLASS-LEVEL METRICS (Internal Classes Only):");
+        System.out.println("---------------------------------------------");
+        System.out.println("Note: External classes (JPanel, JFrame, etc.) are NOT included here.");
+        System.out.println("They only appear in the UML diagram for completeness.\n");
+        
+        for (Map.Entry<String, ClassLevelMetrics> entry : classMetrics.entrySet()) {
+            ClassLevelMetrics cm = entry.getValue();
+            System.out.printf("Class: %s [%s]%s\n", 
+                entry.getKey(), 
+                cm.getClassType(),
+                cm.isSingleton() ? " <<SINGLETON>>" : "");
+            System.out.printf("  Ca (afferent): %d\n", cm.getCa());
+            System.out.printf("  Ce (efferent): %d\n", cm.getCe());
+            System.out.printf("  Instability: %.3f\n", cm.getI());
+            System.out.printf("  Distance: %.3f\n", cm.getD());
+            
+            if (!cm.getExtendsClasses().isEmpty()) {
+                System.out.printf("  Extends: %s\n", cm.getExtendsClasses());
+            }
+            if (!cm.getImplementsInterfaces().isEmpty()) {
+                System.out.printf("  Implements: %s\n", cm.getImplementsInterfaces());
+            }
+            if (!cm.getCompositions().isEmpty()) {
+                System.out.printf("  Compositions: %s\n", cm.getCompositions());
+            }
+            if (!cm.getAggregations().isEmpty()) {
+                System.out.printf("  Aggregations: %s\n", cm.getAggregations());
+            }
+            if (!cm.getAssociations().isEmpty()) {
+                System.out.printf("  Associations: %s\n", cm.getAssociations());
+            }
+            if (!cm.getDependencies().isEmpty()) {
+                System.out.printf("  Dependencies: %s\n", cm.getDependencies());
+            }
+            System.out.println();
+        }
+        
+        System.out.printf("Overall Abstractness: %.3f\n", abstractness);
+        
+        // generate and log PlantUML source
+        System.out.println("\nPLANTUML SOURCE (with External Classes): \n");
+        GHRepoAnalyzed tempAnalysis = new GHRepoAnalyzed(fileMetrics, classMetrics, abstractness, new ArrayList<>());
+        String umlSource = PlantUMLGenerator.generateUML(tempAnalysis);
+        System.out.println(umlSource);
+        System.out.println("\n\n");
     }
 
 }

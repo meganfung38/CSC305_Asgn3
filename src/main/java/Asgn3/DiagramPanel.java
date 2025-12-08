@@ -29,20 +29,51 @@ public class DiagramPanel extends JPanel {
         // clear existing diagram
         clear();
 
-        // generate PlantUML syntax
-        String umlSource = PlantUMLGenerator.generateUML(analysis);
+        try {
+            // generate PlantUML syntax
+            String umlSource = PlantUMLGenerator.generateUML(analysis);
 
-        // create panel with rendered diagram
-        umlPanel = new UMLPanel(umlSource);
+            // create panel with rendered diagram
+            umlPanel = new UMLPanel(umlSource);
+            
+            // check if rendering succeeded
+            if (!umlPanel.isImageLoaded()) {
+                showErrorMessage("Diagram rendering failed.");
+                return;
+            }
 
-        // add with scrollbars
-        scrollPane = new JScrollPane(umlPanel);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            // add with scrollbars
+            scrollPane = new JScrollPane(umlPanel);
+            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-        add(scrollPane, BorderLayout.CENTER);
+            add(scrollPane, BorderLayout.CENTER);
 
-        // refresh display
+            // refresh display
+            revalidate();
+            repaint();
+            
+        } catch (StackOverflowError e) {
+            showErrorMessage("Stack overflow during diagram generation.\nThe codebase may be too complex.");
+        } catch (Exception e) {
+            showErrorMessage("Error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * displays an error message
+     * @param message error message
+     */
+    private void showErrorMessage(String message) {
+        JPanel errorPanel = new JPanel(new BorderLayout());
+        errorPanel.setBackground(Color.WHITE);
+        
+        JLabel errorLabel = new JLabel("<html><div style='padding:20px'>" + message.replace("\n", "<br>") + "</div></html>");
+        errorLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        
+        errorPanel.add(errorLabel, BorderLayout.CENTER);
+        add(errorPanel, BorderLayout.CENTER);
+        
         revalidate();
         repaint();
     }
