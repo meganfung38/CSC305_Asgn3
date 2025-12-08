@@ -15,7 +15,7 @@ public class JavaClass {
     public String cleanedBody;  // body without nested classes (for dependency calculations)
     public final int openBrace;
     public final int closeBrace;
-    public String classType;  // "class", "abstract", or "interface" (source of truth)
+    public String classType;  
 
     /**
      * constructor

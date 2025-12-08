@@ -29,8 +29,6 @@ public class GHRepoAnalyzed {
                           Map<String, ClassLevelMetrics> classMetrics,
                           double A,
                           List<String> filePaths) {
-
-        // initialize fields
         this.fileMetrics = fileMetrics;
         this.classMetrics = classMetrics;
         this.A = A;

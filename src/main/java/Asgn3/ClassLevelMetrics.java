@@ -18,7 +18,7 @@ public class ClassLevelMetrics {
 
     // fields
     private final String className;
-    private String classType;  // "class", "abstract", or "interface"
+    private String classType;  
     private boolean isAbstract;
     private double I;
     private double D;
@@ -45,7 +45,7 @@ public class ClassLevelMetrics {
 
     }
 
-    // make fields mutable (setter methods)
+    // setters
     public void setClassType(String classType) { this.classType = classType; }
     public void setAbstract(boolean isAbstract) { this.isAbstract = isAbstract; }
     public void setI(double i) { this.I = i; }
@@ -53,7 +53,7 @@ public class ClassLevelMetrics {
     public void incrementCa() { this.Ca++; }
     public void incrementCe() { this.Ce++; }
 
-    // access fields (getter methods)
+    // getters
     public String getClassName() { return className; }
     public String getClassType() { return classType; }
     public double getA() { return isAbstract ? 1.0 : 0.0; }
@@ -135,7 +135,8 @@ public class ClassLevelMetrics {
      * checks if this class is a singleton
      * @return true if singleton
      */
-    public boolean isSingleton() {
+    public boolean isSingleton()
+    {
         return isSingleton;
     }
 

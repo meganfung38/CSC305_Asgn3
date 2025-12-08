@@ -18,6 +18,8 @@ public class FieldAnalyzer {
      * represents a field in a class
      */
     static class FieldInfo {
+
+        // fields
         String fieldType;
         String fieldName;
         boolean isFinal;
@@ -25,10 +27,10 @@ public class FieldAnalyzer {
 
         /**
          * constructor
-         * @param fieldType type of the field
-         * @param fieldName name of the field
-         * @param isFinal whether field is final
-         * @param isStatic whether field is static
+         * @param fieldType field's type
+         * @param fieldName field's name
+         * @param isFinal final? --> immutable 
+         * @param isStatic static? 
          */
         FieldInfo(String fieldType, String fieldName, boolean isFinal, boolean isStatic) {
             this.fieldType = fieldType;
@@ -78,15 +80,15 @@ public class FieldAnalyzer {
      * determines whether a field represents composition, aggregation, or association
      * 
      * composition: Strong ownership, lifecycle dependency
-     *   - Private field (strong encapsulation)
-     *   - Instantiated internally with 'new' (part cannot exist without whole)
+     *   - private field (strong encapsulation)
+     *   - instantiated internally with 'new' (part cannot exist without whole)
      * 
      * aggregation: Weaker "whole-part" relationship
-     *   - Field is passed from outside (constructor parameter, setter)
-     *   - Part can exist independently
+     *   - field is passed from outside (constructor parameter, setter)
+     *   - part can exist independently
      * 
      * association: Simple reference without strong ownership
-     *   - Doesn't fit composition or aggregation criteria
+     *   - doesn't fit composition or aggregation criteria
      *
      * @param field the field to analyze
      * @param classBody source code to check for instantiation
