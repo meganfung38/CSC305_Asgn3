@@ -15,7 +15,7 @@ public class JavaClass {
     public String cleanedBody;  // body without nested classes (for dependency calculations)
     public final int openBrace;
     public final int closeBrace;
-    public Boolean isAbstract;
+    public String classType;  // "class", "abstract", or "interface" (source of truth)
 
     /**
      * constructor
@@ -32,6 +32,14 @@ public class JavaClass {
         this.openBrace = openBrace;
         this.closeBrace = closeBrace;
 
+    }
+
+    /**
+     * determines if this class is abstract (interface or abstract class)
+     * @return true if interface or abstract class, false if concrete class
+     */
+    public boolean isAbstract() {
+        return "interface".equals(classType) || "abstract".equals(classType);
     }
 
 }

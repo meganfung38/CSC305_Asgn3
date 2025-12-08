@@ -108,6 +108,7 @@ public class MainFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, "No .java files found in GH folder");
                 gridPanel.clearGrid();
                 metricsPanel.showMetrics(List.of());
+                diagramPanel.clear();
                 return;
             }
 
@@ -117,6 +118,7 @@ public class MainFrame extends JFrame {
             sidePanel.showStructure(analysis.getFilePaths());
             gridPanel.showMetrics(new ArrayList<>(analysis.getFileMetrics().values()));
             metricsPanel.showMetrics(new ArrayList<>(analysis.getClassMetrics().values()));
+            diagramPanel.showDiagram(analysis);
             tabbedPane.setSelectedIndex(0);
 
         } catch (Exception e)  {
@@ -124,6 +126,7 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, e.getMessage());
             gridPanel.clearGrid();
             metricsPanel.showMetrics(List.of());
+            diagramPanel.clear();
 
         }
 
@@ -136,6 +139,7 @@ public class MainFrame extends JFrame {
 
         gridPanel.clearGrid(); // refresh center panel for new GH URL
         metricsPanel.showMetrics(List.of());  // refresh center panel for new GH URL
+        diagramPanel.clear();  // refresh diagram panel for new GH URL
         sidePanel.clear();  // refresh side panel for new GH URL
         topBar.resetUrl();  // reset top bar for new GH URL
 

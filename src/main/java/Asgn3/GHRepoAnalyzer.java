@@ -63,21 +63,23 @@ public class GHRepoAnalyzer {
         // create container for class level metrics
         Map<String, ClassLevelMetrics> classMetrics = new HashMap<>();
 
-        // create container for class types (true for abstract, false otherwise)
-        Map<String, Boolean> isAbstract = new HashMap<>();
-
         // prepare objects for class level metric computations
         for (JavaClass javaClass : classes) {
             classMetrics.put(javaClass.name, new ClassLevelMetrics(javaClass.name));
-            isAbstract.put(javaClass.name, javaClass.isAbstract);
         }
 
         // analyze class relationships (calculate Ca and Ce)
         inspectSignatures(classes, classMetrics);
         inspectBodies(classes, classMetrics);
 
-        // compute class level metrics
-        double A = calculateClassMetrics(isAbstract, classMetrics);
+        // analyze additional relationships (composition, aggregation, association, singleton)
+        analyzeRelationships(classes, classMetrics);
+
+        // add placeholder metrics for external classes 
+        addExternalClasses(classMetrics);
+
+        // compute class level metrics (A, I, D)
+        double A = calculateClassMetrics(classes, classMetrics);
 
         return new GHRepoAnalyzed(fileMetrics, classMetrics, A, filePaths);
 
@@ -184,25 +186,19 @@ public class GHRepoAnalyzer {
 
         List<JavaClass> classes = new ArrayList<>();  // create container for objects
 
+        // remove comments and strings to avoid false matches
+        String cleanedContent = removeCommentsAndStrings(fileContent);
+
         // pattern for class signatures
-        // capture: everything before class/interface keyword, class type, class name, rest of signature
-        Pattern signaturePattern = Pattern.compile(
-                "(?s)" +
-                        "\\b([\\w\\s-]*?)\\s*" +  // capture all modifiers/keywords before class/interface
-                        "(class|interface)\\s+" +
-                        "(\\w+)" +
-                        "([^{]*)\\{"
-        );
-        Matcher matcher = signaturePattern.matcher(fileContent);
+        Pattern signaturePattern = Pattern.compile("(?s)\\b(class|interface)\\s+(\\w+)\\s*(.*?)\\{");
+        Matcher matcher = signaturePattern.matcher(cleanedContent);
 
         // extract classes
         while (matcher.find()) {
-
-            // save class information 
-            String modifiersRaw = matcher.group(1) != null ? matcher.group(1).trim() : "";
-            String classType = matcher.group(2);
-            String className = matcher.group(3);
-            String endOfSig = matcher.group(4).trim();  // extends or implements
+            String classType = matcher.group(1);
+            String className = matcher.group(2);
+            String endOfSig = matcher.group(3).trim();  // extends or implements
+            
             int openBrace = matcher.end() - 1;
             int closeBrace = findCloseBrace(fileContent, openBrace);
             if (closeBrace == -1) { continue; }  // skip malformed class
@@ -211,9 +207,21 @@ public class GHRepoAnalyzer {
             JavaClass currClass = new JavaClass(className, endOfSig, openBrace, closeBrace);
             currClass.fullBody = fileContent.substring(openBrace, closeBrace + 1);
 
-            // classify current class
-            // abstract if: 1) interface, or 2) has abstract modifier
-            currClass.isAbstract = classType.equals("interface") || modifiersRaw.contains("abstract");
+            // set class type 
+            if (classType.equals("interface")) {
+                currClass.classType = "interface";
+            } else {
+                // check if abstract class by looking backwards in cleaned content
+                int matchStart = matcher.start();
+                int lookBackStart = Math.max(0, matchStart - 100);
+                String precedingText = cleanedContent.substring(lookBackStart, matchStart);
+                
+                if (Pattern.compile("\\babstract\\s+class\\s*$").matcher(precedingText).find()) {
+                    currClass.classType = "abstract";
+                } else {
+                    currClass.classType = "class";
+                }
+            }
 
             // add to list
             classes.add(currClass);
@@ -296,24 +304,27 @@ public class GHRepoAnalyzer {
             String className = javaClass.name;
             String signatureContent = javaClass.signature;
 
-            // extract dependencies in signature (for extends)
+            // generalization
             Matcher extendsMatcher = extendsPattern.matcher(signatureContent);
-            if (extendsMatcher.find()) {  // found reference
-                if (classMetrics.containsKey(extendsMatcher.group(1))) {  // check if class exists
-                    classMetrics.get(className).incrementCe();  // increment current class's outgoing dependencies
-                    classMetrics.get(extendsMatcher.group(1)).incrementCa();  // increment referenced class's incoming dependencies
+            if (extendsMatcher.find()) {
+                String parentClass = extendsMatcher.group(1);
+                classMetrics.get(className).incrementCe();
+                classMetrics.get(className).addExtends(parentClass);
+                if (classMetrics.containsKey(parentClass)) {
+                    classMetrics.get(parentClass).incrementCa();
                 }
             }
 
-            // extract dependencies in signature (for implements)
+            // realization
             Matcher implementsMatcher = implementsPattern.matcher(signatureContent);
-            if (implementsMatcher.find()) {  // found reference
-                String implementations = implementsMatcher.group(1);  // all implemented classes
+            if (implementsMatcher.find()) {
+                String implementations = implementsMatcher.group(1);
                 for (String implementation : implementations.split(",")) {
-                    String otherClassName = implementation.trim();
-                    if (classMetrics.containsKey(otherClassName)) {  // check if class exists
-                        classMetrics.get(className).incrementCe();  // increment current class's outgoing dependencies
-                        classMetrics.get(otherClassName).incrementCa();  // increment referenced class's incoming dependencies
+                    String interfaceName = implementation.trim();
+                    classMetrics.get(className).incrementCe();
+                    classMetrics.get(className).addImplements(interfaceName);
+                    if (classMetrics.containsKey(interfaceName)) {
+                        classMetrics.get(interfaceName).incrementCa();
                     }
                 }
             }
@@ -343,7 +354,7 @@ public class GHRepoAnalyzer {
                 // skip current class
                 if (currClassName.equals(otherClassName)) { continue; }
 
-                // find references to otherClass
+                // check if other class is referenced in body
                 Matcher matcher = Pattern.compile("\\b" + Pattern.quote(otherClassName) + "\\b").matcher(cleanedBody);
                 if (matcher.find()) {  // found reference
                     classMetrics.get(otherClassName).incrementCa();  // increment other class's incoming dependencies
@@ -355,27 +366,183 @@ public class GHRepoAnalyzer {
     }
 
     /**
-     * calculates class level metrics (A, I, D)
-     * @param isAbstract boolean list where values represent class type (true for abstract, false otherwise)
-     * @param classMetrics object to store metrics in
-     * @return A
+     * adds placeholder ClassLevelMetrics for external classes
+     * @param classMetrics existing metrics map
      */
-    private double calculateClassMetrics(Map<String, Boolean> isAbstract, Map<String, ClassLevelMetrics> classMetrics) {
+    private void addExternalClasses(Map<String, ClassLevelMetrics> classMetrics) {
+        Set<String> externalClasses = new HashSet<>();
+        Set<String> externalInterfaces = new HashSet<>();
+        Set<String> externalExtends = new HashSet<>();
+
+        // collect all referenced classes and track their source (implements vs extends)
+        for (ClassLevelMetrics metric : classMetrics.values()) {
+            externalExtends.addAll(metric.getExtendsClasses());
+            externalInterfaces.addAll(metric.getImplementsInterfaces());
+            externalClasses.addAll(metric.getCompositions());
+            externalClasses.addAll(metric.getAggregations());
+            externalClasses.addAll(metric.getAssociations());
+            externalClasses.addAll(metric.getDependencies());
+        }
+
+        // combine all external references
+        externalClasses.addAll(externalExtends);
+        externalClasses.addAll(externalInterfaces);
+
+        // add placeholder metrics for external classes with correct type
+        for (String externalClass : externalClasses) {
+            if (!classMetrics.containsKey(externalClass)) {
+                ClassLevelMetrics external = new ClassLevelMetrics(externalClass);
+                
+                // determine type based on how it's used
+                if (externalInterfaces.contains(externalClass)) {
+                    external.setClassType("interface");
+                    external.setAbstract(true);  // interfaces are abstract
+                } else if (externalExtends.contains(externalClass)) {
+                    external.setClassType("class");  // could be abstract, but we assume concrete
+                    external.setAbstract(false);
+                } else {
+                    external.setClassType("class");  // default for field/method references
+                    external.setAbstract(false);
+                }
+                
+                classMetrics.put(externalClass, external);
+            }
+        }
+    }
+
+    /**
+     * analyzes class relationships
+     * @param classes all JavaClass objects
+     * @param classMetrics store relationships in this object
+     */
+    private void analyzeRelationships(List<JavaClass> classes, Map<String, ClassLevelMetrics> classMetrics) {
+
+        Set<String> classNames = classMetrics.keySet();
+
+        for (JavaClass currentClass : classes) {
+            String className = currentClass.name;
+            ClassLevelMetrics metrics = classMetrics.get(className);
+
+            // check if class is singleton
+            if (SingletonDetector.isSingleton(currentClass)) {
+                metrics.setSingleton(true);
+            }
+
+            // analyze fields 
+            analyzeFieldRelationships(currentClass, classMetrics, classNames);
+
+            // analyze methods
+            analyzeMethodRelationships(currentClass, classMetrics, classNames);
+        }
+    }
+
+    /**
+     * analyzes field declarations to determine composition/aggregation/association
+     * @param javaClass the class to analyze
+     * @param classMetrics metrics storage
+     * @param classNames available class names
+     */
+    private void analyzeFieldRelationships(JavaClass javaClass,
+                                           Map<String, ClassLevelMetrics> classMetrics,
+                                           Set<String> classNames) {
+
+        List<FieldAnalyzer.FieldInfo> fields = FieldAnalyzer.extractFields(javaClass.fullBody, classNames);
+
+        for (FieldAnalyzer.FieldInfo field : fields) {
+            // determine if composition, aggregation, or association
+            String relationship = FieldAnalyzer.determineFieldRelationship(field, javaClass.fullBody);
+
+            if (relationship.equals("composition")) {
+                classMetrics.get(javaClass.name).addComposition(field.fieldType);
+            } else if (relationship.equals("aggregation")) {
+                classMetrics.get(javaClass.name).addAggregation(field.fieldType);
+            } else {  // association
+                classMetrics.get(javaClass.name).addAssociation(field.fieldType);
+            }
+        }
+    }
+
+    /**
+     * analyzes method usages for association/dependency
+     * @param javaClass the class to analyze
+     * @param classMetrics metrics storage
+     * @param classNames available class names
+     */
+    private void analyzeMethodRelationships(JavaClass javaClass,
+                                            Map<String, ClassLevelMetrics> classMetrics,
+                                            Set<String> classNames) {
+
+        String cleanedBody = cleanBody(javaClass.cleanedBody);
+
+        // check for singleton usage (association)
+        Set<String> singletonUsages = MethodAnalyzer.findSingletonUsages(cleanedBody, classNames);
+        for (String singleton : singletonUsages) {
+            classMetrics.get(javaClass.name).addAssociation(singleton);
+        }
+
+        // check for temporary usage (dependency)
+        Set<String> temporaryUsages = MethodAnalyzer.findTemporaryUsages(cleanedBody, classNames);
+        for (String tempClass : temporaryUsages) {
+            // only add if not already in extends/implements/fields/singletons
+            if (!isAlreadyRelated(javaClass.name, tempClass, classMetrics)) {
+                classMetrics.get(javaClass.name).addDependency(tempClass);
+            }
+        }
+    }
+
+    /**
+     * checks if a relationship already exists between two classes
+     * @param className source class
+     * @param otherClass target class
+     * @param classMetrics metrics to check
+     * @return true if relationship exists
+     */
+    private boolean isAlreadyRelated(String className, String otherClass,
+                                     Map<String, ClassLevelMetrics> classMetrics) {
+        ClassLevelMetrics metrics = classMetrics.get(className);
+        return metrics.getExtendsClasses().contains(otherClass) ||
+               metrics.getImplementsInterfaces().contains(otherClass) ||
+               metrics.getCompositions().contains(otherClass) ||
+               metrics.getAggregations().contains(otherClass) ||
+               metrics.getAssociations().contains(otherClass);
+    }
+
+    /**
+     * calculates class level metrics (A, I, D)
+     * @param classes list of JavaClass objects (to derive abstractness from classType)
+     * @param classMetrics object to store metrics in
+     * @return A (abstractness of the entire codebase)
+     */
+    private double calculateClassMetrics(List<JavaClass> classes, Map<String, ClassLevelMetrics> classMetrics) {
+
+        // maps class names to their object representation
+        Map<String, JavaClass> classLookup = new HashMap<>();
+        for (JavaClass javaClass : classes) {
+            classLookup.put(javaClass.name, javaClass);
+        }
 
         // calculate A (abstract classes / total classes)
-        int totalClasses = isAbstract.size();
-        long abstractClasses = isAbstract.values().stream().filter(Boolean::booleanValue).count();
+        int totalClasses = classes.size();
+        long abstractClasses = classes.stream().filter(JavaClass::isAbstract).count();
         double A = (totalClasses == 0) ? 0.0 : (double) abstractClasses / totalClasses;
 
         // calculate instability and distance for each class
-        for (ClassLevelMetrics classMetric :  classMetrics.values()) {
+        for (ClassLevelMetrics classMetric : classMetrics.values()) {
 
             // calculate instability (proportion of outgoing dependencies)
             double I = (classMetric.getCa() + classMetric.getCe() == 0) ? 0.0 :
                     (double) classMetric.getCe() / (classMetric.getCa() + classMetric.getCe());
             double D = Math.abs(A + I - 1.0);
 
-            classMetric.setAbstract(isAbstract.get(classMetric.getClassName()));
+            // get the JavaClass and derive isAbstract from classType
+            JavaClass javaClass = classLookup.get(classMetric.getClassName());
+            if (javaClass != null) {
+                // internal class - set type and abstractness from JavaClass
+                classMetric.setClassType(javaClass.classType);
+                classMetric.setAbstract(javaClass.isAbstract());
+            }
+            // external classes already have classType and isAbstract set in addExternalClasses()
+            
             classMetric.setI(I);
             classMetric.setD(D);
 
@@ -383,6 +550,59 @@ public class GHRepoAnalyzer {
 
         return A;
 
+    }
+
+    /**
+     * removes comments and strings from source code while preserving positions
+     * @param content original source code
+     * @return cleaned version with comments/strings replaced by spaces
+     */
+    private String removeCommentsAndStrings(String content) {
+        StringBuilder result = new StringBuilder(content);
+        
+        boolean inString = false;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        char prevChar = '\0';
+        
+        for (int i = 0; i < result.length(); i++) {
+            char c = result.charAt(i);
+            
+            // handle string literals
+            if (c == '"' && prevChar != '\\' && !inLineComment && !inBlockComment) {
+                inString = !inString;
+                result.setCharAt(i, ' ');
+            } else if (inString) {
+                if (c != '\n') result.setCharAt(i, ' ');
+            }
+            
+            // handle line comments
+            else if (!inString && !inBlockComment && c == '/' && i + 1 < result.length() && result.charAt(i + 1) == '/') {
+                inLineComment = true;
+                result.setCharAt(i, ' ');
+            } else if (inLineComment) {
+                if (c == '\n') {
+                    inLineComment = false;
+                } else {
+                    result.setCharAt(i, ' ');
+                }
+            }
+            
+            // handle block comments
+            else if (!inString && c == '/' && i + 1 < result.length() && result.charAt(i + 1) == '*') {
+                inBlockComment = true;
+                result.setCharAt(i, ' ');
+            } else if (inBlockComment) {
+                result.setCharAt(i, ' ');
+                if (prevChar == '*' && c == '/') {
+                    inBlockComment = false;
+                }
+            }
+            
+            prevChar = c;
+        }
+        
+        return result.toString();
     }
 
     /**
