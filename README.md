@@ -11,6 +11,10 @@ A Java application that analyzes GitHub repositories to:
 - Generate **UML class diagrams** with complete relationship detection
 
 ---
+## Project Demo
+**[Project Demo Link](https://drive.google.com/file/d/1LLjdYJOGTYKTXcY6wwDVuk8lO9etuyRu/view?usp=sharing)**
+
+---
 
 ## How to Run
 
