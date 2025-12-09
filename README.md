@@ -484,7 +484,7 @@ if (relationship.equals("composition")) {
 ```java
 // UI setup in constructor
 public MainFrame() {
-    setTitle("Assignment 02");
+    setTitle("Megan's Final Project");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     
     // Initialize components
@@ -510,29 +510,29 @@ public void onOkClicked(ActionEvent actionEvent) {
 
 ## Why This Codebase Exemplifies Clean Code
 
-### **Readability** ✅
+### **Readability** 
 - Clear naming conventions
 - Comprehensive Javadoc
 - Logical method organization
 - Short, focused methods (most < 50 lines)
 
-### **Maintainability** ✅
+### **Maintainability** 
 - Low coupling (most classes have Ce < 5)
 - High cohesion (SRP adhered to)
 - DRY principles (shared utilities)
 - KIS approach (simple string matching vs complex regex)
 
-### **Testability** ✅
+### **Testability** 
 - Stateless analyzers (pure functions)
 - Dependency injection (`GHOperations` passed to `GHRepoAnalyzer`)
 - Data classes are POJOs (easy to mock)
 
-### **Extensibility** ✅
+### **Extensibility** 
 - New analyzer types can be added without modifying existing code
 - Composition pattern allows swapping UI components
 - PlantUML generation is separate from analysis logic
 
-### **Performance** ✅
+### **Performance** 
 - Character-by-character parsing (no regex backtracking)
 - Single-pass analysis where possible
 - Safeguards against large inputs (50 class limit)

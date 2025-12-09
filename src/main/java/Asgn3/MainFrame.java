@@ -37,7 +37,7 @@ public class MainFrame extends JFrame {
         logger.info("Initializing MainFrame: configuration, environment setup, components setup...");
 
         // config
-        setTitle("Assignment 02");
+        setTitle("Megan's Final Project");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 1000);
         setLayout(new BorderLayout(10, 10));
